@@ -1,10 +1,11 @@
 import tcod
 from pathlib import Path
+
+from ai_rogue.procgen import generate_dungeon
 from logger import logger
 from engine import Engine
 from input_handlers import EventHandler
 from entity import Entity
-from game_map import GameMap
 
 ASSETS_DIR = Path(__file__) / "../assets"
 
@@ -17,6 +18,10 @@ def main() -> None:
     map_width = 80
     map_height = 50
 
+    room_max_size = 10
+    room_min_size = 6
+    max_rooms = 30
+
     player_x = int(screen_width / 2)
     player_y = int(screen_height / 2)
 
@@ -28,7 +33,14 @@ def main() -> None:
     npc = Entity(x=player_x - 5, y=player_y, char="@", color=(255, 255, 0))
     entities = {npc, player}
 
-    game_map = GameMap(map_width, map_height)
+    game_map = generate_dungeon(
+        max_rooms=max_rooms,
+        room_min_size=room_min_size,
+        room_max_size=room_max_size,
+        map_width=map_width,
+        map_height=map_height,
+        player=player,
+    )
 
     engine = Engine(entities=entities, event_handler=event_handler, game_map=game_map, player=player)
 
