@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from components.base_component import BaseComponent
-from input_handlers import GameOverEventHandler
+from input_handlers import GameOverEventHandler, InteractionViewer
 from logger import logger
 from render_order import RenderOrder
 import color
@@ -29,6 +29,9 @@ class Fighter(BaseComponent):
         self._hp = max(0, min(value, self.max_hp))
         if self._hp == 0 and self.parent.ai:
             self.die()
+
+    def start_conversation(self) -> None:
+        self.engine.event_handler = InteractionViewer(self.engine)
 
     def die(self) -> None:
         if self.engine.player is self.parent:

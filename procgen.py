@@ -46,10 +46,13 @@ def place_entities(room: RectangularRoom, dungeon: GameMap, max_monsters_per_roo
         y = random.randint(room.y1 + 1, room.y2 - 1)
 
         if not any(entity.x == x and entity.y == y for entity in dungeon.entities):
-            if random.random() < 0.8:
+            rand_num = random.random()
+            if rand_num < 0.6:
                 entity_factories.rabbit.spawn(dungeon, x, y)
+            elif random.random() < 0.8:
+                entity_factories.elephant.spawn(dungeon, x, y)
             else:
-                entity_factories.bear.spawn(dungeon, x, y)
+                entity_factories.lion.spawn(dungeon, x, y)
 
 
 def tunnel_between(

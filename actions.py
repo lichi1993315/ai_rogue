@@ -69,6 +69,8 @@ class InteractAction(ActionWithDirection):
             return # No entity to interact with.
 
         logger.debug(f"{self.entity.name.capitalize()} interacts with {target.name}.")
+        self.engine.chat_log.add_message(f" Hello {self.entity.name.capitalize()}, I am {target.name}. Do not run away!", fg=color.white)
+        self.entity.fighter.start_conversation()
 
 class MeleeAction(ActionWithDirection):
     def perform(self) -> None:
@@ -117,7 +119,7 @@ class MovementAction(ActionWithDirection):
 class BumpAction(ActionWithDirection):
     def perform(self) -> None:
         if self.target_actor:
-            return MeleeAction(self.entity, self.dx, self.dy).perform()
+            return InteractAction(self.entity, self.dx, self.dy).perform()
         else:
             return MovementAction(self.entity, self.dx, self.dy).perform()
 

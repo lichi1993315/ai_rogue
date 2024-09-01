@@ -3,7 +3,9 @@ from __future__ import annotations
 from idlelib.config_key import MOVE_KEYS
 from typing import Optional, TYPE_CHECKING
 import tcod.event
+import tcod
 
+import color
 from actions import Action, EscapeAction, BumpAction, WaitAction
 
 if TYPE_CHECKING:
@@ -58,9 +60,6 @@ class EventHandler(tcod.event.EventDispatch[Action]):
         if self.engine.game_map.in_bounds(event.tile.x, event.tile.y):
             self.engine.mouse_location = event.tile.x, event.tile.y
 
-    def ev_quit(self, event: tcod.event.Quit) -> Optional[Action]:
-        raise SystemExit()
-
     def on_render(self, console: tcod.Console) -> None:
         self.engine.render(console)
 
@@ -93,7 +92,7 @@ class MainGameEventHandler(EventHandler):
         elif key == tcod.event.K_ESCAPE:
             action = EscapeAction(player)
         elif key == tcod.event.K_v:
-            self.engine.event_handler = HistoryViewer(self.engine)
+            self.engine.event_handler = InteractionViewer(self.engine)
 
         return action
 
@@ -123,6 +122,55 @@ CURSOR_Y_KEYS = {
     tcod.event.K_PAGEDOWN: 10,
 }
 
+class InteractionViewer(EventHandler):
+    """Print the interaction history on a larger window which can be navigated."""
+
+    def __init__(self, engine: Engine):
+        super().__init__(engine)
+        self.log_length = len(engine.message_log.messages)
+        self.cursor = self.log_length - 1
+
+    def on_render(self, console: tcod.Console) -> None:
+        super().on_render(console)  # Draw the main state as the background.
+
+        log_console = tcod.Console(console.width, console.height)
+
+        # Draw a frame with a custom banner title.
+        log_console.draw_frame(8, 8, log_console.width - 24, log_console.height - 24)
+        log_console.print_box(
+            8, 8, log_console.width - 24, 1, "┤Chat Board├", fg=color.yellow, alignment=tcod.CENTER
+        )
+
+        # Render the message log using the cursor parameter.
+        self.engine.chat_log.render_messages(
+            log_console,
+            10,
+            10,
+            log_console.width - 26,
+            log_console.height - 26,
+            self.engine.chat_log.messages[: self.cursor + 1],
+        )
+        log_console.blit(console, 3, 3)
+
+    def ev_keydown(self, event: tcod.event.KeyDown) -> None:
+        # Fancy conditional movement to make it feel right.
+        if event.sym in CURSOR_Y_KEYS:
+            adjust = CURSOR_Y_KEYS[event.sym]
+            if adjust < 0 and self.cursor == 0:
+                # Only move from the top to the bottom when you're on the edge.
+                self.cursor = self.log_length - 1
+            elif adjust > 0 and self.cursor == self.log_length - 1:
+                # Same with bottom to top movement.
+                self.cursor = 0
+            else:
+                # Otherwise move while staying clamped to the bounds of the history log.
+                self.cursor = max(0, min(self.cursor + adjust, self.log_length - 1))
+        elif event.sym == tcod.event.K_HOME:
+            self.cursor = 0  # Move directly to the top message.
+        elif event.sym == tcod.event.K_END:
+            self.cursor = self.log_length - 1  # Move directly to the last message.
+        else:  # Any other key moves back to the main game state.
+            self.engine.event_handler = MainGameEventHandler(self.engine)
 
 class HistoryViewer(EventHandler):
     """Print the history on a larger window which can be navigated."""

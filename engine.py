@@ -6,6 +6,7 @@ from tcod.map import compute_fov
 
 from input_handlers import MainGameEventHandler
 from message_log import MessageLog
+from chat_log import ChatLog
 from render_functions import render_bar, render_names_at_mouse_location
 
 if TYPE_CHECKING:
@@ -19,6 +20,7 @@ class Engine:
     def __init__(self, player: Actor):
         self.event_handler: EventHandler = MainGameEventHandler(self)
         self.message_log = MessageLog()
+        self.chat_log = ChatLog()
         self.mouse_location = (0, 0)
         self.player = player
 
