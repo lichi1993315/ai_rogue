@@ -1,7 +1,10 @@
-from entity import Entity
+from components.ai import HostileEnemy
+from components.fighter import Fighter
 
-player = Entity(char="@", color=(255, 255, 255), name="Player", blocks_movement=True)
+from entity import Actor
 
-rabbit = Entity(char="r", color=(63, 127, 63), name="Rabbit", blocks_movement=True)
+player = Actor(char="@", color=(255, 255, 255), name="Player", ai_cls=HostileEnemy, fighter=Fighter(hp=30, defense=2, power=5))
 
-bear = Entity(char="B", color=(0, 127, 0), name="Bear", blocks_movement=True)
+rabbit = Actor(char="r", color=(63, 127, 63), name="Rabbit", ai_cls=HostileEnemy, fighter=Fighter(hp=5, defense=0, power=2))
+
+bear = Actor(char="B", color=(0, 127, 0), name="Bear", ai_cls=HostileEnemy, fighter=Fighter(hp=16, defense=1, power=4))

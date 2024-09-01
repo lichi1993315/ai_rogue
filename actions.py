@@ -1,78 +1,112 @@
 from __future__ import annotations
 from logger import logger
-from typing import TYPE_CHECKING
+from typing import Optional, Tuple, TYPE_CHECKING
+
 
 if TYPE_CHECKING:
     from engine import Engine
-    from entity import Entity
+    from entity import Entity, Actor
 
 class Action:
-    def perform(self, engine: Engine, entity: Entity) -> None:
+    def __init__(self, entity: Actor) -> None:
+        super().__init__()
+        self.entity = entity
+
+    @property
+    def engine(self) -> Engine:
+        return self.entity.gamemap.engine
+
+    def perform(self) -> None:
         """
         Perform this action with the objects needed to determine its scope.
 
-        `engine` is the scope this action is being performed in.
+        `self.engine` is the scope this action is being performed in.
 
-        `entity` is the object performing the action.
+        `self.entity` is the object performing the action.
 
         This method must be overridden by Action subclasses.
         """
         raise NotImplementedError()
 
 class EscapeAction(Action):
-    def perform(self, engine: Engine, entity: Entity) -> None:
+    def perform(self) -> None:
         raise SystemExit()
 
+class WaitAction(Action):
+    def perform(self) -> None:
+        pass
+
 class ActionWithDirection(Action):
-    def __init__(self, dx: int, dy: int):
-        super().__init__()
+    def __init__(self, entity: Actor, dx: int, dy: int):
+        super().__init__(entity)
 
         self.dx = dx
         self.dy = dy
 
-    def perform(self, engine: Engine, entity: Entity) -> None:
+    @property
+    def dest_xy(self) -> Tuple[int, int]:
+        """Return the destination coordinates of this action"""
+        return self.entity.x + self.dx, self.entity.y + self.dy
+
+    @property
+    def blocking_entity(self) -> Optional[Entity]:
+        """Return the blocking entity at this actions destination"""
+        return self.engine.game_map.get_blocking_entity_at_location(*self.dest_xy)
+
+    @property
+    def target_actor(self) -> Optional[Actor]:
+        """Return the actor at this actions destination"""
+        return self.engine.game_map.get_actor_at_location(*self.dest_xy)
+
+    def perform(self) -> None:
         raise NotImplementedError()
 
 class InteractAction(ActionWithDirection):
-    def perform(self, engine: Engine, entity: Entity) -> None:
-        dest_x = entity.x + self.dx
-        dest_y = entity.y + self.dy
-
-        target = engine.game_map.get_blocking_entity_at_location(dest_x, dest_y)
+    def perform(self) -> None:
+        target = self.target_actor
         if not target:
             return # No entity to interact with.
 
-        logger.debug(f"{entity.name.capitalize()} interacts with {target.name}.")
+        logger.debug(f"{self.entity.name.capitalize()} interacts with {target.name}.")
+
+class MeleeAction(ActionWithDirection):
+    def perform(self) -> None:
+        target = self.target_actor
+        if not target:
+            return # No entity to interact with.
+
+        damage = self.entity.fighter.power - target.fighter.defense
+
+        attack_desc = f"{self.entity.name.capitalize()} melee attacks {target.name}"
+        if damage > 0:
+            logger.debug(f"{attack_desc} for {damage} hit points.")
+            target.fighter.hp -= damage
+        else:
+            logger.debug(f"{attack_desc} but does no damage.")
+
 
 
 class MovementAction(ActionWithDirection):
-    def perform(self, engine: Engine, entity: Entity) -> None:
-        dest_x = entity.x + self.dx
-        dest_y = entity.y + self.dy
+    def perform(self) -> None:
+        dest_x, dest_y = self.dest_xy
 
-        if not engine.game_map.in_bounds(dest_x, dest_y):
+        if not self.engine.game_map.in_bounds(dest_x, dest_y):
             logger.debug(f"({dest_x}, {dest_y}) is out of bounds.")
             return # Destination is out of bounds.
-        if not engine.game_map.tiles["walkable"][dest_x, dest_y]:
+        if not self.engine.game_map.tiles["walkable"][dest_x, dest_y]:
             logger.debug(f"({dest_x}, {dest_y}) is blocked by a wall.")
             return # Destination is blocked by a tile.
-        if engine.game_map.get_blocking_entity_at_location(dest_x, dest_y):
-            blocked_entity = engine.game_map.get_blocking_entity_at_location(dest_x, dest_y)
+        if self.engine.game_map.get_blocking_entity_at_location(dest_x, dest_y):
+            blocked_entity = self.engine.game_map.get_blocking_entity_at_location(dest_x, dest_y)
             logger.debug(f"({dest_x}, {dest_y}) is blocked by an entity {blocked_entity.name}.")
             return
 
-        entity.move(self.dx, self.dy)
+        self.entity.move(self.dx, self.dy)
 
 class BumpAction(ActionWithDirection):
-    def perform(self, engine: Engine, entity: Entity) -> None:
-        dest_x = entity.x + self.dx
-        dest_y = entity.y + self.dy
-
-        target = engine.game_map.get_blocking_entity_at_location(dest_x, dest_y)
-        if target:
-            logger.debug(f"{entity.name.capitalize()} bumps into {target.name}.")
-
-            return InteractAction(self.dx, self.dy).perform(engine, entity)
+    def perform(self) -> None:
+        if self.target_actor:
+            return MeleeAction(self.entity, self.dx, self.dy).perform()
         else:
-            return MovementAction(self.dx, self.dy).perform(engine, entity)
+            return MovementAction(self.entity, self.dx, self.dy).perform()
 
