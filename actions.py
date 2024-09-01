@@ -1,6 +1,7 @@
 from __future__ import annotations
 from logger import logger
 from typing import Optional, Tuple, TYPE_CHECKING
+import color
 
 
 if TYPE_CHECKING:
@@ -78,11 +79,19 @@ class MeleeAction(ActionWithDirection):
         damage = self.entity.fighter.power - target.fighter.defense
 
         attack_desc = f"{self.entity.name.capitalize()} melee attacks {target.name}"
+
+        if self.entity is self.engine.player:
+            attack_color = color.player_atk
+        else:
+            attack_color = color.enemy_atk
+
         if damage > 0:
             logger.debug(f"{attack_desc} for {damage} hit points.")
+            self.engine.message_log.add_message(f"{attack_desc} for {damage} hit points.", fg=attack_color)
             target.fighter.hp -= damage
         else:
             logger.debug(f"{attack_desc} but does no damage.")
+            self.engine.message_log.add_message(f"{attack_desc} but does no damage.", fg=attack_color)
 
 
 
@@ -92,9 +101,11 @@ class MovementAction(ActionWithDirection):
 
         if not self.engine.game_map.in_bounds(dest_x, dest_y):
             logger.debug(f"({dest_x}, {dest_y}) is out of bounds.")
+            self.engine.message_log.add_message("You cannot move there.", fg=color.yellow)
             return # Destination is out of bounds.
         if not self.engine.game_map.tiles["walkable"][dest_x, dest_y]:
             logger.debug(f"({dest_x}, {dest_y}) is blocked by a wall.")
+            self.engine.message_log.add_message("You cannot walk into the wall.", fg=color.yellow)
             return # Destination is blocked by a tile.
         if self.engine.game_map.get_blocking_entity_at_location(dest_x, dest_y):
             blocked_entity = self.engine.game_map.get_blocking_entity_at_location(dest_x, dest_y)
