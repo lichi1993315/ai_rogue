@@ -4,6 +4,9 @@ from idlelib.config_key import MOVE_KEYS
 from typing import Optional, TYPE_CHECKING
 import tcod.event
 import tcod
+from tcod.event import T
+
+from logger import logger
 
 import color
 from actions import Action, EscapeAction, BumpAction, WaitAction
@@ -45,6 +48,11 @@ WAIT_KEYS = {
     tcod.event.K_PERIOD,
     tcod.event.K_KP_5,
     tcod.event.K_CLEAR,
+}
+
+CONFIRM_KEYS = {
+    tcod.event.K_RETURN,
+    tcod.event.K_KP_ENTER,
 }
 
 class EventHandler(tcod.event.EventDispatch[Action]):
@@ -128,7 +136,7 @@ class InteractionViewer(EventHandler):
     def __init__(self, engine: Engine):
         super().__init__(engine)
         self.log_length = len(engine.message_log.messages)
-        self.cursor = self.log_length - 1
+        self.user_input = "You: "
 
     def on_render(self, console: tcod.Console) -> None:
         super().on_render(console)  # Draw the main state as the background.
@@ -148,29 +156,32 @@ class InteractionViewer(EventHandler):
             10,
             log_console.width - 26,
             log_console.height - 26,
-            self.engine.chat_log.messages[: self.cursor + 1],
+            self.engine.chat_log.messages,
         )
         log_console.blit(console, 3, 3)
 
-    def ev_keydown(self, event: tcod.event.KeyDown) -> None:
-        # Fancy conditional movement to make it feel right.
-        if event.sym in CURSOR_Y_KEYS:
-            adjust = CURSOR_Y_KEYS[event.sym]
-            if adjust < 0 and self.cursor == 0:
-                # Only move from the top to the bottom when you're on the edge.
-                self.cursor = self.log_length - 1
-            elif adjust > 0 and self.cursor == self.log_length - 1:
-                # Same with bottom to top movement.
-                self.cursor = 0
-            else:
-                # Otherwise move while staying clamped to the bounds of the history log.
-                self.cursor = max(0, min(self.cursor + adjust, self.log_length - 1))
-        elif event.sym == tcod.event.K_HOME:
-            self.cursor = 0  # Move directly to the top message.
-        elif event.sym == tcod.event.K_END:
-            self.cursor = self.log_length - 1  # Move directly to the last message.
-        else:  # Any other key moves back to the main game state.
+    def ev_keydown(self, event: tcod.event.KeyDown) -> Optional[Action]:
+        action: Optional[Action] = None
+        key = event.sym
+
+        if key in CONFIRM_KEYS:
+            logger.debug("Confirm key pressed")
+
             self.engine.event_handler = MainGameEventHandler(self.engine)
+        elif key in {tcod.event.K_ESCAPE, tcod.event.K_RETURN}:
+            action = EscapeAction(self.engine.player)
+        return action
+
+    def ev_textinput(self, event: tcod.event.TextInput) -> T | None:
+        logger.debug(f"Text input: {event.text}, full input: {self.user_input}")
+        self.user_input += event.text
+        if "You:" in self.engine.chat_log.messages[-1].plain_text:
+            self.engine.chat_log.messages[-1].plain_text = self.user_input
+        else:
+            self.engine.chat_log.add_message(self.user_input, fg=color.white)
+        logger.debug(f"chat_log: {self.engine.chat_log.messages}")
+        return event.text
+
 
 class HistoryViewer(EventHandler):
     """Print the history on a larger window which can be navigated."""
