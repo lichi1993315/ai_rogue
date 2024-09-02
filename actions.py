@@ -1,6 +1,8 @@
 from __future__ import annotations
 from logger import logger
-from typing import Optional, Tuple, TYPE_CHECKING
+from typing import Optional, Tuple,Type, TYPE_CHECKING
+
+
 import color
 
 
@@ -63,13 +65,15 @@ class ActionWithDirection(Action):
         raise NotImplementedError()
 
 class InteractAction(ActionWithDirection):
-    def perform(self) -> None:
+    def perform(self,msg:str) -> None:
         target = self.target_actor
         if not target:
             return # No entity to interact with.
 
         logger.debug(f"{self.entity.name.capitalize()} interacts with {target.name}.")
-        self.engine.chat_log.add_message(f" Hello {self.entity.name.capitalize()}, I am {target.name}. Do not run away!", fg=color.white)
+        # self.engine.chat_log.add_message(f" Hello {self.entity.name.capitalize()}, I am {target.name}. Do not run away!", fg=color.white)
+        self.engine.chat_log.add_message(f"{target.name}: {msg}", fg=color.white)
+        
         self.entity.fighter.start_conversation()
 
 class MeleeAction(ActionWithDirection):
@@ -119,7 +123,10 @@ class MovementAction(ActionWithDirection):
 class BumpAction(ActionWithDirection):
     def perform(self) -> None:
         if self.target_actor:
-            return InteractAction(self.entity, self.dx, self.dy).perform()
+            if  self.target_actor.name == "Rabbit":
+                return InteractAction(self.entity, self.dx, self.dy).perform("hello,player, do you want dto mofumofu me?")
+            if self.target_actor.name == "Elephant":
+                return MeleeAction(self.entity, self.dx, self.dy).perform()
         else:
             return MovementAction(self.entity, self.dx, self.dy).perform()
 

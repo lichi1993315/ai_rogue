@@ -105,7 +105,7 @@ class Actor(Entity):
         )
 
         self.ai: Optional[BaseAI] = ai_cls(self)
-
+        self.ai_cls = ai_cls
         self.fighter = fighter
         self.fighter.parent = self
 
